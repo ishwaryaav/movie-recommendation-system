@@ -1,0 +1,50 @@
+# Install necessary libraries
+!pip install scikit-surprise
+
+# 📥 1. Importing Libraries
+import pandas as pd
+from surprise import Dataset, Reader, SVD
+from surprise.model_selection import cross_validate
+import matplotlib.pyplot as plt
+
+# 📊 2. Load Dataset
+ratings_url = "https://raw.githubusercontent.com/sayakpaul/Recommendation-System-Tutorials/main/data/ratings.csv"
+movies_url = "https://raw.githubusercontent.com/sayakpaul/Recommendation-System-Tutorials/main/data/movies.csv"
+
+ratings = pd.read_csv(ratings_url)
+movies = pd.read_csv(movies_url)
+
+# 🔍 3. Preview Data
+print(ratings.head())
+print(movies.head())
+
+# 🧼 4. Merge Data
+data = pd.merge(ratings, movies, on="movieId")
+print(data.head())
+
+# 🧠 5. Build the Model (Collaborative Filtering with SVD)
+reader = Reader(rating_scale=(0.5, 5.0))
+dataset = Dataset.load_from_df(data[['userId', 'movieId', 'rating']], reader)
+
+model = SVD()
+results = cross_validate(model, dataset, measures=['RMSE'], cv=5, verbose=True)
+
+# 🚀 6. Train Final Model
+trainset = dataset.build_full_trainset()
+model.fit(trainset)
+
+# 🔄 7. Function to Get Top Movie Recommendations
+def get_recommendations(user_id, num=5):
+    movie_ids = data['movieId'].unique()
+    watched = data[data['userId'] == user_id]['movieId']
+    unseen = [mid for mid in movie_ids if mid not in watched.values]
+    
+    predictions = [model.predict(user_id, mid) for mid in unseen]
+    predictions.sort(key=lambda x: x.est, reverse=True)
+    
+    top_movies = [pred.iid for pred in predictions[:num]]
+    return movies[movies['movieId'].isin(top_movies)][['title', 'genres']]
+
+# 🎯 Example: Get top 5 movie recommendations for user ID 10
+print("\nRecommended Movies:")
+print(get_recommendations(10))
